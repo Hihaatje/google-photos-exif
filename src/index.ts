@@ -1,6 +1,7 @@
 import { Command, flags } from '@oclif/command';
 import * as Parser from '@oclif/parser';
-import { existsSync, promises as fspromises } from 'fs';
+import { existsSync, promises as fspromises } from 'fs'; 
+import { parse } from 'path';
 import { CONFIG } from './config';
 import { doesFileHaveExifDate } from './helpers/does-file-have-exif-date';
 import { findSupportedMediaFiles } from './helpers/find-supported-media-files';
@@ -40,16 +41,11 @@ class GooglePhotosExif extends Command {
     const { args, flags} = this.parse(GooglePhotosExif);
     const { inputDir, outputDir, errorDir } = flags;
 
-    try {
-      const directories = this.determineDirectoryPaths(inputDir, outputDir, errorDir);
-      await this.prepareDirectories(directories);
-      await this.processMediaFiles(directories);
-    } catch (error) {
-      this.error(error);
-      this.exit(1);
-    }
+    const directories = this.determineDirectoryPaths(inputDir, outputDir, errorDir);
+    await this.prepareDirectories(directories);
+    await this.processMediaFiles(directories);
 
-    this.log('Done 🎉');
+   this.log('Done 🎉');
     this.exit(0);
   }
 
@@ -132,7 +128,7 @@ class GooglePhotosExif extends Command {
             this.log(`Wrote "DateTimeOriginal" EXIF metadata to: ${mediaFile.outputFileName}`);
           }
         }
-
+        
         await updateFileModificationDate(mediaFile.outputFilePath, photoTimeTaken);
       }
     }
