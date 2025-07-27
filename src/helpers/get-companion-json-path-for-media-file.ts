@@ -1,5 +1,11 @@
 import { existsSync } from "fs"
-import { basename, dirname, extname, resolve } from 'path'
+import { basename, dirname, extname, resolve, join } from 'path'
+import { globSync } from "glob";
+import { platform } from 'os'
+
+function isWindows() {  
+  return platform() === 'win32'
+}
 
 export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|null {
   const directoryPath = dirname(mediaFilePath);
@@ -15,8 +21,8 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
   // the JSON file is sometimes `foo.json` but sometimes it's `foo.jpg.json`. Here we start building up a list of potential
   // JSON filenames so that we can try to find them later
   const potentialJsonFileNames: string[] = [
-    `${mediaFileNameWithoutExtension}.json`,
-    `${mediaFileNameWithoutExtension}${mediaFileExtension}.json`,
+    `${mediaFileNameWithoutExtension}.supplemental-metadata.json`,
+    `${mediaFileNameWithoutExtension}${mediaFileExtension}.supplemental-metadata.json`,
   ];
 
   // Another edge case which seems to be quite inconsistent occurs when we have media files containing a number suffix for example "foo(1).jpg"
@@ -26,7 +32,7 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
   if (nameWithCounterMatch) {
     const name = nameWithCounterMatch?.groups?.['name'];
     const counter = nameWithCounterMatch?.groups?.['counter'];
-    potentialJsonFileNames.push(`${name}${mediaFileExtension}${counter}.json`);
+    potentialJsonFileNames.push(`${name}${mediaFileExtension}.supplemental-metadata${counter}.json`)
   }
 
   // Sometimes the media filename ends with extra dash (eg. filename_n-.jpg + filename_n.json)
@@ -40,7 +46,7 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
 
   if (endsWithExtraDash || endsWithExtraNChar || endsWithExtraUnderscore) {
     // We need to remove that extra char at the end
-    potentialJsonFileNames.push(`${mediaFileNameWithoutExtension.slice(0, -1)}.json`);
+    potentialJsonFileNames.push(`${mediaFileNameWithoutExtension.slice(0, -1)}.supplemental-metadata.json`);
   }
 
   // Now look to see if we have a JSON file in the same directory as the image for any of the potential JSON file names
@@ -52,6 +58,18 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
     }
   }
 
+  // If we still don't have a match, use glob. This has a long runtime, but will match filenames which have for 
+  // example truncated tails.
+  const potentialJsonFileNamePatterns: string[] = [
+    `${mediaFileNameWithoutExtension.slice(0,-1)}*.json`,
+  ]
+  for (const potentialJsonFileNamePattern of potentialJsonFileNamePatterns) {
+    const glob_path = join(directoryPath, `${mediaFileNameWithoutExtension.slice(0,-1)}*.json`)
+    const jsonFilePathes = globSync( glob_path, {windowsPathsNoEscape: isWindows()})
+    if (jsonFilePathes[0]) {
+      return jsonFilePathes[0]
+    }
+  }
   // If no JSON file was found, just return null - we won't be able to adjust the date timestamps without finding a
   // suitable JSON sidecar file
   return null;
